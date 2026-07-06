@@ -391,6 +391,105 @@ paths:
                 items:
                   $ref: "#/components/schemas/LeaderboardEntry"
 
+  /guilds/{guildId}/dashboard-access:
+    get:
+      operationId: listDashboardAccess
+      tags: [guilds]
+      summary: List roles/users explicitly granted web dashboard access (read-only; managed via bot command)
+      parameters:
+        - name: guildId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Dashboard access entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DashboardAccessEntry"
+
+  /guilds/{guildId}/members/search:
+    get:
+      operationId: searchGuildMembers
+      tags: [leveling]
+      summary: Search current guild members by username/nickname
+      parameters:
+        - name: guildId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: q
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Matching members
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MemberSearchResult"
+
+  /guilds/{guildId}/members/{userId}/xp:
+    get:
+      operationId: getMemberXp
+      tags: [leveling]
+      summary: Get a member's current XP/level
+      parameters:
+        - name: guildId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Member XP/level
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MemberXp"
+    put:
+      operationId: updateMemberXp
+      tags: [leveling]
+      summary: Admin override - directly set a member's XP/level
+      parameters:
+        - name: guildId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MemberXpInput"
+      responses:
+        "200":
+          description: Updated member XP/level
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MemberXp"
+
   /bot/invite:
     get:
       operationId: getBotInvite
@@ -740,3 +839,84 @@ components:
           type: string
       required:
         - url
+
+    DashboardAccessEntry:
+      type: object
+      properties:
+        id:
+          type: integer
+        guildId:
+          type: string
+        targetType:
+          type: string
+          enum: [role, user]
+        targetId:
+          type: string
+        addedBy:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+      required:
+        - id
+        - guildId
+        - targetType
+        - targetId
+        - createdAt
+
+    MemberSearchResult:
+      type: object
+      properties:
+        userId:
+          type: string
+        username:
+          type: string
+          nullable: true
+        displayName:
+          type: string
+          nullable: true
+        avatarUrl:
+          type: string
+          nullable: true
+      required:
+        - userId
+
+    MemberXp:
+      type: object
+      properties:
+        guildId:
+          type: string
+        userId:
+          type: string
+        textXp:
+          type: integer
+        textLevel:
+          type: integer
+        voiceXp:
+          type: integer
+        voiceLevel:
+          type: integer
+      required:
+        - guildId
+        - userId
+        - textXp
+        - textLevel
+        - voiceXp
+        - voiceLevel
+
+    MemberXpInput:
+      type: object
+      properties:
+        textXp:
+          type: integer
+        textLevel:
+          type: integer
+        voiceXp:
+          type: integer
+        voiceLevel:
+          type: integer
+      required:
+        - textXp
+        - textLevel
+        - voiceXp
+        - voiceLevel

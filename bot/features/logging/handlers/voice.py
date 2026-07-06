@@ -17,11 +17,16 @@ class VoiceEventHandlers:
 
         # Member moved from one channel to another
         if before.channel and after.channel and before.channel != after.channel:
+            # Discord's audit log doesn't record *which* member was moved for
+            # member_move entries — only the destination channel and a count.
+            # We match on the destination channel and mark the entry as
+            # "consumed" so simultaneous moves of different members don't all
+            # get attributed to the same admin action.
             executor = await get_audit_executor(
                 guild,
                 discord.AuditLogAction.member_move,
-                target_id=None,
-                max_age=5.0,
+                channel_id=after.channel.id,
+                exclusive=True,
             )
 
             # Skip moves initiated by the bot itself — these are temp-VC system moves
@@ -53,11 +58,15 @@ class VoiceEventHandlers:
 
         # Member disconnected from voice
         elif before.channel and not after.channel:
+            # Same limitation as above: member_disconnect audit entries only
+            # carry the source channel + count, not the specific member. We
+            # match on the channel the member was disconnected from and
+            # consume the entry so it can't be reused for another member.
             executor = await get_audit_executor(
                 guild,
                 discord.AuditLogAction.member_disconnect,
-                target_id=None,
-                max_age=5.0,
+                channel_id=before.channel.id,
+                exclusive=True,
             )
 
             if executor and executor.id != member.id:

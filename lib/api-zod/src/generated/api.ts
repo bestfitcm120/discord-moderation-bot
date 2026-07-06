@@ -392,6 +392,87 @@ export const GetLeaderboardResponse = zod.array(GetLeaderboardResponseItem)
 
 
 /**
+ * @summary List roles/users explicitly granted web dashboard access (read-only; managed via bot command)
+ */
+export const ListDashboardAccessParams = zod.object({
+  "guildId": zod.coerce.string()
+})
+
+export const ListDashboardAccessResponseItem = zod.object({
+  "id": zod.number(),
+  "guildId": zod.string(),
+  "targetType": zod.enum(['role', 'user']),
+  "targetId": zod.string(),
+  "addedBy": zod.string().nullish(),
+  "createdAt": zod.string()
+})
+export const ListDashboardAccessResponse = zod.array(ListDashboardAccessResponseItem)
+
+
+/**
+ * @summary Search current guild members by username/nickname
+ */
+export const SearchGuildMembersParams = zod.object({
+  "guildId": zod.coerce.string()
+})
+
+export const SearchGuildMembersQueryParams = zod.object({
+  "q": zod.coerce.string().optional()
+})
+
+export const SearchGuildMembersResponseItem = zod.object({
+  "userId": zod.string(),
+  "username": zod.string().nullish(),
+  "displayName": zod.string().nullish(),
+  "avatarUrl": zod.string().nullish()
+})
+export const SearchGuildMembersResponse = zod.array(SearchGuildMembersResponseItem)
+
+
+/**
+ * @summary Get a member's current XP/level
+ */
+export const GetMemberXpParams = zod.object({
+  "guildId": zod.coerce.string(),
+  "userId": zod.coerce.string()
+})
+
+export const GetMemberXpResponse = zod.object({
+  "guildId": zod.string(),
+  "userId": zod.string(),
+  "textXp": zod.number(),
+  "textLevel": zod.number(),
+  "voiceXp": zod.number(),
+  "voiceLevel": zod.number()
+})
+
+
+/**
+ * @summary Admin override - directly set a member's XP/level
+ */
+export const UpdateMemberXpParams = zod.object({
+  "guildId": zod.coerce.string(),
+  "userId": zod.coerce.string()
+})
+
+export const UpdateMemberXpBody = zod.object({
+  "textXp": zod.number(),
+  "textLevel": zod.number(),
+  "voiceXp": zod.number(),
+  "voiceLevel": zod.number()
+})
+
+export const UpdateMemberXpResponse = zod.object({
+  "guildId": zod.string(),
+  "userId": zod.string(),
+  "textXp": zod.number(),
+  "textLevel": zod.number(),
+  "voiceXp": zod.number(),
+  "voiceLevel": zod.number()
+})
+
+
+/**
  * @summary Get the bot invite URL
  */
 export const GetBotInviteResponse = zod.object({

@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 
 from web.core.database import get_pool
 from web.core.session import get_session
+from web.features.guilds.router import _user_can_access_guild
 
 router = APIRouter()
 
@@ -14,6 +15,8 @@ async def get_guild_config(guild_id: str, request: Request):
     session = get_session(request)
     if not session:
         return JSONResponse({"error": "Not authenticated"}, status_code=401)
+    if not await _user_can_access_guild(guild_id, session):
+        return JSONResponse({"error": "Forbidden"}, status_code=403)
 
     pool = get_pool()
     row = await pool.fetchrow(
@@ -46,6 +49,8 @@ async def update_guild_config(guild_id: str, request: Request):
     session = get_session(request)
     if not session:
         return JSONResponse({"error": "Not authenticated"}, status_code=401)
+    if not await _user_can_access_guild(guild_id, session):
+        return JSONResponse({"error": "Forbidden"}, status_code=403)
 
     body = await request.json()
     default_log_channel = body.get("defaultLogChannel")

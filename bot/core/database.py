@@ -105,6 +105,21 @@ async def _ensure_schema(pool: asyncpg.Pool) -> None:
             )
         """)
 
+        # Dashboard access grants: lets the server owner/admins allow a
+        # specific role or user to access the web dashboard for a guild,
+        # without needing Discord's Manage Server / Administrator permission.
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS dashboard_access (
+                id          BIGSERIAL PRIMARY KEY,
+                guild_id    TEXT NOT NULL,
+                target_type TEXT NOT NULL CHECK (target_type IN ('role', 'user')),
+                target_id   TEXT NOT NULL,
+                added_by    TEXT,
+                created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                UNIQUE (guild_id, target_type, target_id)
+            )
+        """)
+
         # Column additions for older databases
         await conn.execute("""
             ALTER TABLE guild_configs
@@ -112,6 +127,63 @@ async def _ensure_schema(pool: asyncpg.Pool) -> None:
         """)
 
     logger.info("Database schema verified / migrated successfully")
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Dashboard access helpers
+# ──────────────────────────────────────────────────────────────────────────────
+
+async def add_dashboard_access(
+    pool: asyncpg.Pool,
+    guild_id: str,
+    target_type: str,
+    target_id: str,
+    added_by: str,
+) -> bool:
+    """Grant dashboard access to a role or user. Returns False if it already existed."""
+    result = await pool.execute(
+        """
+        INSERT INTO dashboard_access (guild_id, target_type, target_id, added_by)
+        VALUES ($1, $2, $3, $4)
+        ON CONFLICT (guild_id, target_type, target_id) DO NOTHING
+        """,
+        guild_id,
+        target_type,
+        target_id,
+        added_by,
+    )
+    return result.endswith("1")
+
+
+async def remove_dashboard_access(
+    pool: asyncpg.Pool,
+    guild_id: str,
+    target_type: str,
+    target_id: str,
+) -> bool:
+    result = await pool.execute(
+        """
+        DELETE FROM dashboard_access
+        WHERE guild_id = $1 AND target_type = $2 AND target_id = $3
+        """,
+        guild_id,
+        target_type,
+        target_id,
+    )
+    return result.endswith("1")
+
+
+async def list_dashboard_access(pool: asyncpg.Pool, guild_id: str) -> list[dict]:
+    rows = await pool.fetch(
+        """
+        SELECT id, guild_id, target_type, target_id, added_by, created_at
+        FROM dashboard_access
+        WHERE guild_id = $1
+        ORDER BY created_at ASC
+        """,
+        guild_id,
+    )
+    return [dict(r) for r in rows]
 
 
 async def close_pool() -> None:
@@ -154,12 +226,14 @@ async def insert_log_entry(
     user_id: Optional[str] = None,
     target_id: Optional[str] = None,
     metadata: Optional[dict] = None,
+    created_at=None,
 ) -> None:
     import json
+    import datetime
     await pool.execute(
         """
         INSERT INTO log_entries (guild_id, event_type, user_id, target_id, description, metadata, created_at)
-        VALUES ($1, $2, $3, $4, $5, $6, NOW())
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
         """,
         guild_id,
         event_type,
@@ -167,6 +241,7 @@ async def insert_log_entry(
         target_id,
         description,
         json.dumps(metadata or {}),
+        created_at or datetime.datetime.now(datetime.timezone.utc),
     )
 
 

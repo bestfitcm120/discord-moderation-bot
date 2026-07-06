@@ -1,3 +1,5 @@
+import asyncio
+import datetime
 import discord
 from discord.ext import commands
 import logging
@@ -30,6 +32,17 @@ class LoggingCog(commands.Cog, name="Logging"):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.pool = None
+        # Serializes voice event processing per guild so that concurrent
+        # audit-log lookups (each with their own delay/retry loop) can't
+        # finish out of order and scramble the log channel / dashboard order.
+        self._voice_locks: dict[int, asyncio.Lock] = {}
+
+    def _get_voice_lock(self, guild_id: int) -> asyncio.Lock:
+        lock = self._voice_locks.get(guild_id)
+        if lock is None:
+            lock = asyncio.Lock()
+            self._voice_locks[guild_id] = lock
+        return lock
 
     async def cog_load(self) -> None:
         self.pool = await get_pool(self.bot.config.database_url)
@@ -46,10 +59,16 @@ class LoggingCog(commands.Cog, name="Logging"):
         user_id: Optional[str] = None,
         target_id: Optional[str] = None,
         metadata: Optional[dict] = None,
+        event_time: Optional[datetime.datetime] = None,
     ) -> None:
         """
         Central dispatch: look up the configured channel, send the embed,
         and record the event in the database.
+
+        `event_time` should be the moment the underlying Discord event fired
+        (captured before any audit-log delay/await), so events recorded out
+        of processing order still land in the right chronological order in
+        the database / dashboard.
         """
         channel_id = await get_log_channel(self.pool, str(guild.id), event_type)
         if channel_id:
@@ -72,6 +91,7 @@ class LoggingCog(commands.Cog, name="Logging"):
             user_id=user_id,
             target_id=target_id,
             metadata=metadata or {},
+            created_at=event_time,
         )
 
     # ──────────────────────────────────────────────────────────────────────────
@@ -254,12 +274,19 @@ class LoggingCog(commands.Cog, name="Logging"):
         before: discord.VoiceState,
         after: discord.VoiceState,
     ) -> None:
-        embeds = await VoiceEventHandlers.voice_state_update(member, before, after)
-        for embed, event_type in embeds:
-            await self.send_log(
-                member.guild, event_type, embed,
-                user_id=str(member.id)
-            )
+        # Capture the moment the event actually happened, before any
+        # audit-log delay, so ordering stays correct even if a later event
+        # finishes processing first.
+        event_time = discord.utils.utcnow()
+        lock = self._get_voice_lock(member.guild.id)
+        async with lock:
+            embeds = await VoiceEventHandlers.voice_state_update(member, before, after)
+            for embed, event_type in embeds:
+                await self.send_log(
+                    member.guild, event_type, embed,
+                    user_id=str(member.id),
+                    event_time=event_time,
+                )
 
     # ──────────────────────────────────────────────────────────────────────────
     # Server events

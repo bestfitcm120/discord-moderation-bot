@@ -107,6 +107,16 @@ async def _ensure_schema(pool: asyncpg.Pool) -> None:
             levelup_message_enabled BOOLEAN NOT NULL DEFAULT TRUE,
             updated_at              TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
+
+        CREATE TABLE IF NOT EXISTS dashboard_access (
+            id          BIGSERIAL PRIMARY KEY,
+            guild_id    TEXT NOT NULL,
+            target_type TEXT NOT NULL CHECK (target_type IN ('role', 'user')),
+            target_id   TEXT NOT NULL,
+            added_by    TEXT,
+            created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            UNIQUE (guild_id, target_type, target_id)
+        );
     """)
 
     # Add missing columns to older databases

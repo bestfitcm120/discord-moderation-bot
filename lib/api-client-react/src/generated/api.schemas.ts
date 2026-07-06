@@ -197,6 +197,46 @@ export interface BotInvite {
   url: string;
 }
 
+export type DashboardAccessEntryTargetType = typeof DashboardAccessEntryTargetType[keyof typeof DashboardAccessEntryTargetType];
+
+
+export const DashboardAccessEntryTargetType = {
+  role: 'role',
+  user: 'user',
+} as const;
+
+export interface DashboardAccessEntry {
+  id: number;
+  guildId: string;
+  targetType: DashboardAccessEntryTargetType;
+  targetId: string;
+  addedBy?: string | null;
+  createdAt: string;
+}
+
+export interface MemberSearchResult {
+  userId: string;
+  username?: string | null;
+  displayName?: string | null;
+  avatarUrl?: string | null;
+}
+
+export interface MemberXp {
+  guildId: string;
+  userId: string;
+  textXp: number;
+  textLevel: number;
+  voiceXp: number;
+  voiceLevel: number;
+}
+
+export interface MemberXpInput {
+  textXp: number;
+  textLevel: number;
+  voiceXp: number;
+  voiceLevel: number;
+}
+
 export type ListGuildChannelsParams = {
 /**
  * Discord channel type filter: 0=text, 2=voice, 5=announcement. Omit to get text+announcement.
@@ -225,4 +265,8 @@ export const GetLeaderboardCategory = {
   text: 'text',
   voice: 'voice',
 } as const;
+
+export type SearchGuildMembersParams = {
+q?: string;
+};
 

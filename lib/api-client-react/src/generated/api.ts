@@ -23,6 +23,7 @@ import type {
   AuthUser,
   BotInvite,
   Channel,
+  DashboardAccessEntry,
   ErrorResponse,
   GetLeaderboardParams,
   Guild,
@@ -38,8 +39,12 @@ import type {
   ListGuildModerationParams,
   LogEntry,
   MemberHistoryPoint,
+  MemberSearchResult,
+  MemberXp,
+  MemberXpInput,
   MessageHistoryPoint,
-  MessageResponse
+  MessageResponse,
+  SearchGuildMembersParams
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -1386,6 +1391,328 @@ export function useGetLeaderboard<TData = Awaited<ReturnType<typeof getLeaderboa
 
 
 
+
+export const getListDashboardAccessUrl = (guildId: string,) => {
+
+
+
+
+  return `/api/guilds/${guildId}/dashboard-access`
+}
+
+/**
+ * @summary List roles/users explicitly granted web dashboard access (read-only; managed via bot command)
+ */
+export const listDashboardAccess = async (guildId: string, options?: RequestInit): Promise<DashboardAccessEntry[]> => {
+
+  return customFetch<DashboardAccessEntry[]>(getListDashboardAccessUrl(guildId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListDashboardAccessQueryKey = (guildId: string,) => {
+    return [
+    `/api/guilds/${guildId}/dashboard-access`
+    ] as const;
+    }
+
+
+export const getListDashboardAccessQueryOptions = <TData = Awaited<ReturnType<typeof listDashboardAccess>>, TError = ErrorType<unknown>>(guildId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listDashboardAccess>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListDashboardAccessQueryKey(guildId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listDashboardAccess>>> = ({ signal }) => listDashboardAccess(guildId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(guildId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listDashboardAccess>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListDashboardAccessQueryResult = NonNullable<Awaited<ReturnType<typeof listDashboardAccess>>>
+export type ListDashboardAccessQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List roles/users explicitly granted web dashboard access (read-only; managed via bot command)
+ */
+
+export function useListDashboardAccess<TData = Awaited<ReturnType<typeof listDashboardAccess>>, TError = ErrorType<unknown>>(
+ guildId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listDashboardAccess>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListDashboardAccessQueryOptions(guildId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getSearchGuildMembersUrl = (guildId: string,
+    params?: SearchGuildMembersParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/guilds/${guildId}/members/search?${stringifiedParams}` : `/api/guilds/${guildId}/members/search`
+}
+
+/**
+ * @summary Search current guild members by username/nickname
+ */
+export const searchGuildMembers = async (guildId: string,
+    params?: SearchGuildMembersParams, options?: RequestInit): Promise<MemberSearchResult[]> => {
+
+  return customFetch<MemberSearchResult[]>(getSearchGuildMembersUrl(guildId,params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getSearchGuildMembersQueryKey = (guildId: string,
+    params?: SearchGuildMembersParams,) => {
+    return [
+    `/api/guilds/${guildId}/members/search`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getSearchGuildMembersQueryOptions = <TData = Awaited<ReturnType<typeof searchGuildMembers>>, TError = ErrorType<unknown>>(guildId: string,
+    params?: SearchGuildMembersParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof searchGuildMembers>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getSearchGuildMembersQueryKey(guildId,params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof searchGuildMembers>>> = ({ signal }) => searchGuildMembers(guildId,params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(guildId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof searchGuildMembers>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type SearchGuildMembersQueryResult = NonNullable<Awaited<ReturnType<typeof searchGuildMembers>>>
+export type SearchGuildMembersQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Search current guild members by username/nickname
+ */
+
+export function useSearchGuildMembers<TData = Awaited<ReturnType<typeof searchGuildMembers>>, TError = ErrorType<unknown>>(
+ guildId: string,
+    params?: SearchGuildMembersParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof searchGuildMembers>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getSearchGuildMembersQueryOptions(guildId,params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getGetMemberXpUrl = (guildId: string,
+    userId: string,) => {
+
+
+
+
+  return `/api/guilds/${guildId}/members/${userId}/xp`
+}
+
+/**
+ * @summary Get a member's current XP/level
+ */
+export const getMemberXp = async (guildId: string,
+    userId: string, options?: RequestInit): Promise<MemberXp> => {
+
+  return customFetch<MemberXp>(getGetMemberXpUrl(guildId,userId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetMemberXpQueryKey = (guildId: string,
+    userId: string,) => {
+    return [
+    `/api/guilds/${guildId}/members/${userId}/xp`
+    ] as const;
+    }
+
+
+export const getGetMemberXpQueryOptions = <TData = Awaited<ReturnType<typeof getMemberXp>>, TError = ErrorType<unknown>>(guildId: string,
+    userId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMemberXp>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetMemberXpQueryKey(guildId,userId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getMemberXp>>> = ({ signal }) => getMemberXp(guildId,userId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(guildId && userId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getMemberXp>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetMemberXpQueryResult = NonNullable<Awaited<ReturnType<typeof getMemberXp>>>
+export type GetMemberXpQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get a member's current XP/level
+ */
+
+export function useGetMemberXp<TData = Awaited<ReturnType<typeof getMemberXp>>, TError = ErrorType<unknown>>(
+ guildId: string,
+    userId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMemberXp>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetMemberXpQueryOptions(guildId,userId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getUpdateMemberXpUrl = (guildId: string,
+    userId: string,) => {
+
+
+
+
+  return `/api/guilds/${guildId}/members/${userId}/xp`
+}
+
+/**
+ * @summary Admin override - directly set a member's XP/level
+ */
+export const updateMemberXp = async (guildId: string,
+    userId: string,
+    memberXpInput: MemberXpInput, options?: RequestInit): Promise<MemberXp> => {
+
+  return customFetch<MemberXp>(getUpdateMemberXpUrl(guildId,userId),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      memberXpInput,)
+  }
+);}
+
+
+
+
+export const getUpdateMemberXpMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateMemberXp>>, TError,{guildId: string;userId: string;data: BodyType<MemberXpInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateMemberXp>>, TError,{guildId: string;userId: string;data: BodyType<MemberXpInput>}, TContext> => {
+
+const mutationKey = ['updateMemberXp'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateMemberXp>>, {guildId: string;userId: string;data: BodyType<MemberXpInput>}> = (props) => {
+          const {guildId,userId,data} = props ?? {};
+
+          return  updateMemberXp(guildId,userId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateMemberXpMutationResult = NonNullable<Awaited<ReturnType<typeof updateMemberXp>>>
+    export type UpdateMemberXpMutationBody = BodyType<MemberXpInput>
+    export type UpdateMemberXpMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Admin override - directly set a member's XP/level
+ */
+export const useUpdateMemberXp = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateMemberXp>>, TError,{guildId: string;userId: string;data: BodyType<MemberXpInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateMemberXp>>,
+        TError,
+        {guildId: string;userId: string;data: BodyType<MemberXpInput>},
+        TContext
+      > => {
+      return useMutation(getUpdateMemberXpMutationOptions(options));
+    }
 
 export const getGetBotInviteUrl = () => {
 
