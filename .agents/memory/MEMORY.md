@@ -1,2 +1,4 @@
 - [Discord OAuth session pattern](discord-oauth-session.md) — HMAC-signed cookie sessions; queryKey required in all generated React Query hooks
 - [Orval Zod codegen collision fix](orval-zod-collision.md) — removing `schemas` from Orval Zod config prevents duplicate TS type/Zod value name collisions
+- [Voice audit log attribution](voice-audit-attribution.md) — Discord member_move/member_disconnect audit entries carry no per-member target, only channel+count; match by channel_id + consume entry ID to prevent double-attribution
+- [Dashboard access gating pattern](dashboard-access-gating.md) — guild access check mirrors list_guilds logic; _user_can_access_guild helper in guilds router imported by config router to avoid circular deps

@@ -3,9 +3,11 @@ import {
   useGetGuildConfig,
   useUpdateGuildConfig,
   useListGuildChannels,
+  useListDashboardAccess,
   getGetMeQueryKey,
   getGetGuildConfigQueryKey,
   getListGuildChannelsQueryKey,
+  getListDashboardAccessQueryKey,
 } from "@workspace/api-client-react";
 import { useRoute, useLocation } from "wouter";
 import { useEffect, useState } from "react";
@@ -80,6 +82,10 @@ export default function ServerSettings() {
 
   const { data: textChannels = [] } = useListGuildChannels(guildId, {}, {
     query: { enabled: !!guildId && !!user, queryKey: getListGuildChannelsQueryKey(guildId, {}) },
+  });
+
+  const { data: dashboardAccess = [] } = useListDashboardAccess(guildId, {
+    query: { enabled: !!guildId && !!user, queryKey: getListDashboardAccessQueryKey(guildId) },
   });
 
   const updateConfig = useUpdateGuildConfig();
@@ -206,6 +212,45 @@ export default function ServerSettings() {
                 </div>
               );
             })}
+            {/* ── Dashboard Access (read-only, managed via /dashboard-access bot command) ── */}
+            <div className="rounded-xl border border-border bg-card overflow-hidden">
+              <div className="px-5 py-3 border-b border-border bg-secondary/30 flex items-center justify-between">
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  🔐 Dashboard Access
+                </span>
+                <span className="text-xs text-muted-foreground">managed via <code className="bg-secondary px-1 rounded">/dashboard-access</code> bot command</span>
+              </div>
+              <div className="p-5 space-y-3">
+                <p className="text-xs text-muted-foreground">
+                  Members with <strong className="text-foreground">Manage Server</strong> or <strong className="text-foreground">Administrator</strong> always have access.
+                  The list below shows additional roles and members explicitly granted access by a server admin.
+                </p>
+                {dashboardAccess.length === 0 ? (
+                  <div className="rounded-lg bg-secondary/30 border border-border px-4 py-3 text-sm text-muted-foreground text-center">
+                    No extra grants. Use <code className="bg-secondary px-1 rounded">/dashboard-access add</code> in Discord to grant access to a role or member.
+                  </div>
+                ) : (
+                  <div className="divide-y divide-border border border-border rounded-lg overflow-hidden">
+                    {dashboardAccess.map((entry) => (
+                      <div key={entry.id} className="flex items-center justify-between px-4 py-2.5 bg-card hover:bg-secondary/20 transition-colors">
+                        <div className="flex items-center gap-2">
+                          <span className="text-base">{entry.targetType === "role" ? "👥" : "👤"}</span>
+                          <div>
+                            <div className="text-sm text-foreground font-medium">
+                              {entry.targetType === "role" ? "Role" : "Member"}{" "}
+                              <code className="text-primary text-xs bg-primary/10 px-1.5 py-0.5 rounded">{entry.targetId}</code>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {new Date(entry.createdAt).toLocaleDateString()}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
           </>
         )}
       </div>

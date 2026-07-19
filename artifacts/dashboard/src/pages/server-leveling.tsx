@@ -4,10 +4,15 @@ import {
   useUpdateLevelingConfig,
   useGetLeaderboard,
   useListGuildChannels,
+  useSearchGuildMembers,
+  useGetMemberXp,
+  useUpdateMemberXp,
   getGetMeQueryKey,
   getGetLevelingConfigQueryKey,
   getGetLeaderboardQueryKey,
   getListGuildChannelsQueryKey,
+  getGetMemberXpQueryKey,
+  getSearchGuildMembersQueryKey,
 } from "@workspace/api-client-react";
 import { useRoute, useLocation } from "wouter";
 import { useEffect, useState } from "react";
@@ -137,13 +142,206 @@ function MemberCell({ entry }: { entry: { userId: string; username?: string | nu
   );
 }
 
+// ─── Manage XP tab ─────────────────────────────────────────────────────────
+
+function ManageXpTab({ guildId }: { guildId: string }) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [selectedName, setSelectedName] = useState<string>("");
+  const [selectedAvatar, setSelectedAvatar] = useState<string | null>(null);
+
+  const [textXp, setTextXp] = useState(0);
+  const [textLevel, setTextLevel] = useState(0);
+  const [voiceXp, setVoiceXp] = useState(0);
+  const [voiceLevel, setVoiceLevel] = useState(0);
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQuery(query.trim()), 350);
+    return () => clearTimeout(t);
+  }, [query]);
+
+  const { data: searchResults = [], isFetching: searching } = useSearchGuildMembers(
+    guildId,
+    { q: debouncedQuery },
+    { query: { enabled: debouncedQuery.length >= 1, queryKey: getSearchGuildMembersQueryKey(guildId, { q: debouncedQuery }) } },
+  );
+
+  const { data: existingXp, isLoading: xpLoading } = useGetMemberXp(
+    guildId,
+    selectedUserId ?? "",
+    { query: { enabled: !!selectedUserId, queryKey: getGetMemberXpQueryKey(guildId, selectedUserId ?? "") } },
+  );
+
+  useEffect(() => {
+    if (existingXp) {
+      setTextXp(existingXp.textXp);
+      setTextLevel(existingXp.textLevel);
+      setVoiceXp(existingXp.voiceXp);
+      setVoiceLevel(existingXp.voiceLevel);
+    }
+  }, [existingXp]);
+
+  const updateXp = useUpdateMemberXp();
+
+  function selectMember(userId: string, displayName: string, avatarUrl: string | null | undefined) {
+    setSelectedUserId(userId);
+    setSelectedName(displayName);
+    setSelectedAvatar(avatarUrl ?? null);
+    setQuery("");
+    setDebouncedQuery("");
+  }
+
+  async function handleSave() {
+    if (!selectedUserId) return;
+    try {
+      await updateXp.mutateAsync({
+        guildId,
+        userId: selectedUserId,
+        data: { textXp, textLevel, voiceXp, voiceLevel },
+      });
+      queryClient.invalidateQueries({ queryKey: getGetMemberXpQueryKey(guildId, selectedUserId) });
+      queryClient.invalidateQueries({ queryKey: getGetLeaderboardQueryKey(guildId, { category: "text" }) });
+      queryClient.invalidateQueries({ queryKey: getGetLeaderboardQueryKey(guildId, { category: "voice" }) });
+      toast({ title: "XP updated", description: `${selectedName}'s XP has been saved.` });
+    } catch {
+      toast({ title: "Save failed", description: "Could not update XP.", variant: "destructive" });
+    }
+  }
+
+  return (
+    <div className="space-y-5">
+      <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 text-sm text-amber-300/80 space-y-1">
+        <p className="font-semibold text-amber-300">Admin XP Override</p>
+        <p>Search for a member, then directly set their text or voice XP and level. The leaderboard updates immediately.</p>
+      </div>
+
+      {/* Search */}
+      <div className="relative">
+        <input
+          type="text"
+          placeholder="Search member by name…"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          className="w-full text-sm bg-secondary border border-border rounded-lg px-3 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+        />
+        {debouncedQuery && searchResults.length > 0 && !selectedUserId && (
+          <div className="absolute z-10 top-full mt-1 w-full rounded-xl border border-border bg-card shadow-xl overflow-hidden">
+            {searchResults.map((m) => {
+              const name = m.displayName ?? m.username ?? m.userId;
+              return (
+                <button
+                  key={m.userId}
+                  type="button"
+                  onClick={() => selectMember(m.userId!, name, m.avatarUrl)}
+                  className="w-full flex items-center gap-2.5 px-4 py-2.5 hover:bg-secondary/60 transition-colors text-left"
+                >
+                  {m.avatarUrl ? (
+                    <img src={m.avatarUrl} alt="" className="w-7 h-7 rounded-full flex-shrink-0 object-cover" />
+                  ) : (
+                    <div className="w-7 h-7 rounded-full bg-secondary border border-border flex-shrink-0 flex items-center justify-center text-xs text-muted-foreground">
+                      {name.slice(0, 1).toUpperCase()}
+                    </div>
+                  )}
+                  <div>
+                    <div className="text-sm text-foreground font-medium">{name}</div>
+                    {m.username && m.username !== name && (
+                      <div className="text-xs text-muted-foreground">@{m.username}</div>
+                    )}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
+        {searching && debouncedQuery && (
+          <div className="absolute right-3 top-2.5 text-muted-foreground text-xs">searching…</div>
+        )}
+      </div>
+
+      {/* Selected member + editor */}
+      {selectedUserId && (
+        <div className="rounded-xl border border-border bg-card overflow-hidden">
+          {/* Member header */}
+          <div className="px-5 py-3 border-b border-border bg-secondary/30 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              {selectedAvatar ? (
+                <img src={selectedAvatar} alt="" className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
+              ) : (
+                <div className="w-8 h-8 rounded-full bg-secondary border border-border flex-shrink-0 flex items-center justify-center text-xs text-muted-foreground">
+                  {selectedName.slice(0, 1).toUpperCase()}
+                </div>
+              )}
+              <span className="text-sm font-semibold text-foreground">{selectedName}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => { setSelectedUserId(null); setSelectedName(""); setSelectedAvatar(null); }}
+              className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              change member
+            </button>
+          </div>
+
+          <div className="p-5 space-y-5">
+            {xpLoading ? (
+              <div className="space-y-3">{[1, 2].map((i) => <Skeleton key={i} className="h-10 rounded-lg" />)}</div>
+            ) : (
+              <>
+                {/* Text XP */}
+                <div>
+                  <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">💬 Text</div>
+                  <div className="space-y-3">
+                    <NumberInput label="Text XP" value={textXp} min={0} onChange={setTextXp} />
+                    <NumberInput label="Text Level" value={textLevel} min={0} onChange={setTextLevel} />
+                  </div>
+                </div>
+
+                <div className="border-t border-border" />
+
+                {/* Voice XP */}
+                <div>
+                  <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">🔊 Voice</div>
+                  <div className="space-y-3">
+                    <NumberInput label="Voice XP" value={voiceXp} min={0} onChange={setVoiceXp} />
+                    <NumberInput label="Voice Level" value={voiceLevel} min={0} onChange={setVoiceLevel} />
+                  </div>
+                </div>
+
+                <button
+                  onClick={handleSave}
+                  disabled={updateXp.isPending}
+                  className="w-full px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {updateXp.isPending ? "Saving…" : "Save XP Changes"}
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {!selectedUserId && (
+        <div className="rounded-xl border border-border bg-card p-8 text-center text-sm text-muted-foreground">
+          Search for a member above to edit their XP.
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Page ──────────────────────────────────────────────────────────────────
+
 export default function ServerLeveling() {
   const [, params] = useRoute("/servers/:guildId/leveling");
   const guildId = params?.guildId ?? "";
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<"settings" | "text" | "voice">("settings");
+  const [activeTab, setActiveTab] = useState<"settings" | "text" | "voice" | "manage">("settings");
   const [dirty, setDirty] = useState(false);
 
   const { data: user, isLoading: userLoading } = useGetMe({
@@ -232,7 +430,7 @@ export default function ServerLeveling() {
           <div>
             <h2 className="text-xl font-bold text-foreground">Leveling System</h2>
             <p className="text-sm text-muted-foreground mt-1">
-              Configure XP gains, level-up announcements, and view the server leaderboard.
+              Configure XP gains, level-up announcements, and manage member XP.
             </p>
           </div>
           {activeTab === "settings" && (
@@ -247,16 +445,17 @@ export default function ServerLeveling() {
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-1 border-b border-border">
+        <div className="flex gap-1 border-b border-border overflow-x-auto">
           {[
             { key: "settings", label: "⚙️ Settings" },
             { key: "text", label: "💬 Text Leaderboard" },
             { key: "voice", label: "🔊 Voice Leaderboard" },
+            { key: "manage", label: "✏️ Manage XP" },
           ].map((tab) => (
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key as typeof activeTab)}
-              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${
+              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px whitespace-nowrap ${
                 activeTab === tab.key
                   ? "border-primary text-primary"
                   : "border-transparent text-muted-foreground hover:text-foreground"
@@ -496,6 +695,9 @@ export default function ServerLeveling() {
             </table>
           </div>
         )}
+
+        {/* Manage XP Tab */}
+        {activeTab === "manage" && <ManageXpTab guildId={guildId} />}
       </div>
       <Toaster />
     </ServerLayout>
