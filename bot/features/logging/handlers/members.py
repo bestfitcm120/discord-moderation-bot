@@ -103,8 +103,13 @@ class MemberEventHandlers:
         return embed
 
     @staticmethod
-    async def member_kick(guild: discord.Guild, member: discord.Member) -> discord.Embed:
-        executor = await get_audit_executor(guild, discord.AuditLogAction.kick, target_id=member.id)
+    async def member_kick(
+        guild: discord.Guild,
+        member: discord.Member,
+        executor=None,
+    ) -> discord.Embed:
+        if executor is None:
+            executor = await get_audit_executor(guild, discord.AuditLogAction.kick, target_id=member.id)
         embed = discord.Embed(
             title="Member Kicked",
             description=f"{member.mention} was kicked from the server.",

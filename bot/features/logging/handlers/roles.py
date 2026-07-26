@@ -23,7 +23,7 @@ class RoleEventHandlers:
 
     @staticmethod
     async def role_delete(role: discord.Role) -> discord.Embed:
-        executor = await get_audit_executor(role.guild, discord.AuditLogAction.role_delete)
+        executor = await get_audit_executor(role.guild, discord.AuditLogAction.role_delete, target_id=role.id)
         embed = discord.Embed(
             title="Role Deleted",
             description=f"Role **{role.name}** was deleted.",

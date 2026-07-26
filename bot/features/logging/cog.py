@@ -13,6 +13,7 @@ from bot.core.database import (
     track_member_event,
     track_message_event,
 )
+from bot.utils.audit import get_audit_executor
 from bot.features.logging.handlers.members import MemberEventHandlers
 from bot.features.logging.handlers.messages import MessageEventHandlers
 from bot.features.logging.handlers.roles import RoleEventHandlers
@@ -128,11 +129,23 @@ class LoggingCog(commands.Cog, name="Logging"):
     @commands.Cog.listener()
     async def on_member_remove(self, member: discord.Member) -> None:
         await track_member_event(self.pool, str(member.guild.id), str(member.id), "leave")
-        embed = await MemberEventHandlers.member_leave(member)
-        await self.send_log(
-            member.guild, "member_leave", embed,
-            user_id=str(member.id)
+        # Check the audit log to distinguish a kick from a voluntary leave.
+        # We pass the executor in so member_kick doesn't need to re-query.
+        executor = await get_audit_executor(
+            member.guild, discord.AuditLogAction.kick, target_id=member.id
         )
+        if executor:
+            embed = await MemberEventHandlers.member_kick(member.guild, member, executor=executor)
+            await self.send_log(
+                member.guild, "member_kick", embed,
+                user_id=str(member.id)
+            )
+        else:
+            embed = await MemberEventHandlers.member_leave(member)
+            await self.send_log(
+                member.guild, "member_leave", embed,
+                user_id=str(member.id)
+            )
 
     @commands.Cog.listener()
     async def on_member_ban(self, guild: discord.Guild, user: discord.User) -> None:
@@ -273,6 +286,22 @@ class LoggingCog(commands.Cog, name="Logging"):
     # ──────────────────────────────────────────────────────────────────────────
 
     @commands.Cog.listener()
+    async def on_guild_channel_create(self, channel: discord.abc.GuildChannel) -> None:
+        embed = await ChannelEventHandlers.channel_create(channel)
+        await self.send_log(
+            channel.guild, "channel_create", embed,
+            target_id=str(channel.id), metadata={"channel_name": channel.name}
+        )
+
+    @commands.Cog.listener()
+    async def on_guild_channel_delete(self, channel: discord.abc.GuildChannel) -> None:
+        embed = await ChannelEventHandlers.channel_delete(channel)
+        await self.send_log(
+            channel.guild, "channel_delete", embed,
+            target_id=str(channel.id), metadata={"channel_name": channel.name}
+        )
+
+    @commands.Cog.listener()
     async def on_guild_channel_update(self, before: discord.abc.GuildChannel, after: discord.abc.GuildChannel) -> None:
         embeds = await ChannelEventHandlers.channel_update(before, after)
         for embed, event_type in embeds:
@@ -317,6 +346,8 @@ class LoggingCog(commands.Cog, name="Logging"):
 
     @commands.Cog.listener()
     async def on_invite_create(self, invite: discord.Invite) -> None:
+        if not isinstance(invite.guild, discord.Guild):
+            return
         embed = await ServerEventHandlers.invite_create(invite)
         await self.send_log(
             invite.guild, "invite_create", embed,

@@ -6,6 +6,45 @@ from bot.utils.audit import get_audit_executor, executor_field
 
 class ChannelEventHandlers:
     @staticmethod
+    async def channel_create(channel: discord.abc.GuildChannel) -> discord.Embed:
+        executor = await get_audit_executor(
+            channel.guild, discord.AuditLogAction.channel_create, target_id=channel.id
+        )
+        embed = discord.Embed(
+            title="Channel Created",
+            description=f"New channel {channel.mention} was created.",
+            color=discord.Color.green(),
+        )
+        embed.add_field(name="Name", value=channel.name, inline=True)
+        embed.add_field(name="Type", value=str(channel.type).replace("_", " ").title(), inline=True)
+        if hasattr(channel, "category") and channel.category:
+            embed.add_field(name="Category", value=channel.category.name, inline=True)
+        embed.add_field(name="Created by", value=executor_field(executor), inline=False)
+        embed.set_footer(text=f"Channel ID: {channel.id}")
+        embed.timestamp = discord.utils.utcnow()
+        return embed
+
+    @staticmethod
+    async def channel_delete(channel: discord.abc.GuildChannel) -> discord.Embed:
+        executor = await get_audit_executor(
+            channel.guild, discord.AuditLogAction.channel_delete, target_id=channel.id
+        )
+        embed = discord.Embed(
+            title="Channel Deleted",
+            description=f"Channel **#{channel.name}** was deleted.",
+            color=discord.Color.red(),
+        )
+        embed.add_field(name="Name", value=channel.name, inline=True)
+        embed.add_field(name="Type", value=str(channel.type).replace("_", " ").title(), inline=True)
+        if hasattr(channel, "category") and channel.category:
+            embed.add_field(name="Category", value=channel.category.name, inline=True)
+        embed.add_field(name="Deleted by", value=executor_field(executor), inline=False)
+        embed.set_footer(text=f"Channel ID: {channel.id}")
+        embed.timestamp = discord.utils.utcnow()
+        return embed
+
+
+    @staticmethod
     async def channel_update(
         before: discord.abc.GuildChannel,
         after: discord.abc.GuildChannel,
