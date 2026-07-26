@@ -55,14 +55,16 @@ class ModerationBot(commands.Bot):
                 name=f"{len(self.guilds)} servers",
             )
         )
-        # Remove any global commands left over from earlier syncs. Discord persists global
-        # commands until explicitly deleted — if they were ever synced globally before this
-        # guild-specific strategy was adopted, they stay registered and appear as duplicates
-        # alongside the guild-specific copies. Clearing + syncing globally with an empty set
-        # removes them. This is safe to call every restart; after the first run it's a no-op.
+        # Remove any stale global commands from Discord without losing the local tree.
+        # clear_commands(guild=None) wipes the in-memory tree, so we must snapshot first,
+        # clear + sync globally (pushes empty set → Discord deletes all global registrations),
+        # then restore the snapshot so copy_global_to still has commands to work with.
         try:
+            saved = self.tree.get_commands()
             self.tree.clear_commands(guild=None)
             await self.tree.sync()
+            for cmd in saved:
+                self.tree.add_command(cmd)
             logger.info("Cleared global command registrations (duplicate prevention)")
         except Exception as e:
             logger.warning(f"Could not clear global commands: {e}")
