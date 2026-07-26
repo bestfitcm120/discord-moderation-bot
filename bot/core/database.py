@@ -194,6 +194,14 @@ async def close_pool() -> None:
         logger.info("Database connection pool closed")
 
 
+async def get_default_log_channel(pool: asyncpg.Pool, guild_id: str) -> Optional[str]:
+    row = await pool.fetchrow(
+        "SELECT default_log_channel FROM guild_configs WHERE guild_id = $1",
+        guild_id,
+    )
+    return row["default_log_channel"] if row else None
+
+
 async def get_log_channel(pool: asyncpg.Pool, guild_id: str, event_type: str) -> Optional[str]:
     row = await pool.fetchrow(
         """

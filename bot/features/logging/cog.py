@@ -7,6 +7,7 @@ from typing import Optional
 
 from bot.core.database import (
     get_pool,
+    get_default_log_channel,
     get_log_channel,
     insert_log_entry,
     track_member_event,
@@ -71,17 +72,34 @@ class LoggingCog(commands.Cog, name="Logging"):
         the database / dashboard.
         """
         channel_id = await get_log_channel(self.pool, str(guild.id), event_type)
+        target_channel: Optional[discord.TextChannel] = None
+
         if channel_id:
-            channel = guild.get_channel(int(channel_id))
-            if channel and isinstance(channel, discord.TextChannel):
-                try:
-                    await channel.send(embed=embed)
-                except discord.Forbidden:
-                    logger.warning(
-                        f"No permission to send to channel {channel_id} in guild {guild.id}"
-                    )
-                except discord.HTTPException as e:
-                    logger.error(f"Failed to send log to channel {channel_id}: {e}")
+            ch = guild.get_channel(int(channel_id))
+            if isinstance(ch, discord.TextChannel):
+                target_channel = ch
+            else:
+                # The configured channel was deleted. Fall back to the default log
+                # channel rather than silently dropping the event.
+                default_id = await get_default_log_channel(self.pool, str(guild.id))
+                if default_id and default_id != channel_id:
+                    ch2 = guild.get_channel(int(default_id))
+                    if isinstance(ch2, discord.TextChannel):
+                        target_channel = ch2
+                        logger.debug(
+                            f"Channel {channel_id} not found in guild {guild.id}; "
+                            f"falling back to default log channel {default_id}"
+                        )
+
+        if target_channel:
+            try:
+                await target_channel.send(embed=embed)
+            except discord.Forbidden:
+                logger.warning(
+                    f"No permission to send to channel {target_channel.id} in guild {guild.id}"
+                )
+            except discord.HTTPException as e:
+                logger.error(f"Failed to send log to channel {target_channel.id}: {e}")
 
         await insert_log_entry(
             self.pool,
