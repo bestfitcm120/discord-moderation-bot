@@ -120,6 +120,11 @@ function xpForLevel(level: number): number {
   return 100 * level * (level + 1) / 2;
 }
 
+function levelForXp(xp: number): number {
+  // Inverse of xpForLevel: largest L where 50*L*(L+1) <= xp
+  return Math.floor((-1 + Math.sqrt(1 + 4 * xp / 50)) / 2);
+}
+
 const RANK_MEDALS = ["🥇", "🥈", "🥉"];
 
 function MemberCell({ entry }: { entry: { userId: string; username?: string | null; displayName?: string | null; avatarUrl?: string | null } }) {
@@ -295,8 +300,8 @@ function ManageXpTab({ guildId }: { guildId: string }) {
                 <div>
                   <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">💬 Text</div>
                   <div className="space-y-3">
-                    <NumberInput label="Text XP" value={textXp} min={0} onChange={setTextXp} />
-                    <NumberInput label="Text Level" value={textLevel} min={0} onChange={setTextLevel} />
+                    <NumberInput label="Text XP" value={textXp} min={0} onChange={(xp) => { setTextXp(xp); setTextLevel(levelForXp(xp)); }} />
+                    <NumberInput label="Text Level" value={textLevel} min={0} onChange={(lvl) => { setTextLevel(lvl); setTextXp(xpForLevel(lvl)); }} />
                   </div>
                 </div>
 
@@ -306,8 +311,8 @@ function ManageXpTab({ guildId }: { guildId: string }) {
                 <div>
                   <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">🔊 Voice</div>
                   <div className="space-y-3">
-                    <NumberInput label="Voice XP" value={voiceXp} min={0} onChange={setVoiceXp} />
-                    <NumberInput label="Voice Level" value={voiceLevel} min={0} onChange={setVoiceLevel} />
+                    <NumberInput label="Voice XP" value={voiceXp} min={0} onChange={(xp) => { setVoiceXp(xp); setVoiceLevel(levelForXp(xp)); }} />
+                    <NumberInput label="Voice Level" value={voiceLevel} min={0} onChange={(lvl) => { setVoiceLevel(lvl); setVoiceXp(xpForLevel(lvl)); }} />
                   </div>
                 </div>
 
